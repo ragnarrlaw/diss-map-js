@@ -4,11 +4,13 @@ import 'leaflet-routing-machine';
 import { onMounted, watch } from 'vue';
 import { useMapStore } from '@/stores/mapStore';
 import useGeolocation from '@/composables/useGeolocation';
+import 'leaflet-routing-machine';
 
 const mapStore = useMapStore();
 const { coords } = useGeolocation();
 let map = null;
 let userGeoMarker = null;
+let routingControl = null;
 
 onMounted(() => {
   console.log(
@@ -34,7 +36,7 @@ onMounted(() => {
         .marker([element.latitude, element.longitude])
         .addTo(map)
         .bindPopup(
-          `Selected marker {${(element.latitude, element.longitude)}}`,
+          `Selected marker: (${element.latitude}, ${element.longitude})`,
         );
       console.log(marker.toGeoJSON());
     });
@@ -69,26 +71,30 @@ watch(coords, newCoords => {
   }
 });
 
-watch(
-  () => mapStore.selectedMarkers,
-  newSelectedMarkers => {
-    console.log('New location added: ', newSelectedMarkers);
-    leaflet.Routing.control({
-      waypoints: [
-        leaflet.latLng(
-          mapStore.userMarker.latitude,
-          mapStore.userMarker.longitude,
-        ),
-        leaflet.latLng(
-          newSelectedMarkers[0].latitude,
-          newSelectedMarkers[0].longitude,
-        ),
-      ],
-      routeWhileDragging: true,
-      geocoder: leaflet.Control.Geocoder.nominatim(),
-    }).addTo(map);
-  },
-);
+mapStore.$subscribe((mutation, state) => {
+  console.log('MapStore mutation:', mutation.type);
+  console.log('MapStore state:', state.selectedMarkers);
+  if (state.selectedMarkers.length > 1) {
+    if (routingControl) {
+      map.removeControl(routingControl);
+    }
+    routingControl = leaflet.routing
+      .control({
+        waypoints: [
+          leaflet.latLng(
+            state.selectedMarkers[0].latitude,
+            state.selectedMarkers[0].longitude,
+          ),
+          leaflet.latLng(
+            state.selectedMarkers[1].latitude,
+            state.selectedMarkers[1].longitude,
+          ),
+        ],
+        routeWhileDragging: true,
+      })
+      .addTo(map);
+  }
+});
 </script>
 
 <template>
